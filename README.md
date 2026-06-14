@@ -277,25 +277,28 @@ Conversational Intelligence
 
 ### Dashboard
 
-![Dashboard](images/dashboard.png)
+![Dashboard](<img width="1461" height="866" alt="image" src="https://github.com/user-attachments/assets/c9687628-fa7a-4970-9f29-fa63426ee77d" />
+)
 
 ---
 
 ### AI Briefing
 
-![AI Briefing](images/briefing.png)
+![AI Briefing](<img width="1461" height="866" alt="image" src="https://github.com/user-attachments/assets/97891afc-1b88-477b-b7c0-37180ae4adcb" />
+)
 
 ---
 
 ### Gmail Intelligence
 
-![Emails](images/emails.png)
+![Emails]()
 
 ---
 
 ### Aura Assistant
 
-![Assistant](images/assistant.png)
+![Assistant](<img width="1461" height="866" alt="image" src="https://github.com/user-attachments/assets/eb211f54-5874-48be-81a3-f9eda400e6fc" />
+)
 
 ---
 
