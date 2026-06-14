@@ -1,0 +1,21 @@
+# Python
+venv/
+backend/venv/
+__pycache__/
+*.pyc
+
+# Environment
+.env
+.env.save
+
+# Database
+*.db
+
+# NextJS
+node_modules/
+.next/
+
+# OS
+.DS_Store
+backend/token.json
+token.json
