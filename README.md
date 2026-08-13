@@ -1,8 +1,11 @@
-# AURA – AI Personal Operating System
+# Personal-AI-Reasoning-Decision-System
 
 > Transforming fragmented digital information into actionable intelligence through AI-powered reasoning, memory, prioritization, planning, and decision support.
 
 ---
+<img width="1722" height="881" alt="Screenshot 2026-08-13 103208" src="https://github.com/user-attachments/assets/fd1d47df-625f-4c2d-af6a-4081b9f93abf" />
+<img width="1862" height="817" alt="Screenshot 2026-08-13 103232" src="https://github.com/user-attachments/assets/942db013-2af3-475b-bbbf-af1bb8c7c34b" />
+
 
 ## Overview
 
