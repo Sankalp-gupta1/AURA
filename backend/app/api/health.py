@@ -11,6 +11,8 @@ def health():
         "status": "ok",
         "app": settings.APP_NAME,
         "environment": settings.ENVIRONMENT,
-        "ai_configured": bool(settings.OPENAI_API_KEY),
-        "google_oauth_configured": bool(settings.GOOGLE_CLIENT_ID and settings.GOOGLE_CLIENT_SECRET),
+        "ai_configured": bool(settings.GEMINI_API_KEY),
+        "google_oauth_configured": bool(
+            settings.GOOGLE_CLIENT_ID and settings.GOOGLE_CLIENT_SECRET
+        ),
     }
