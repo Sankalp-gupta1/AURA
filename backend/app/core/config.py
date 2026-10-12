@@ -6,6 +6,18 @@ from functools import lru_cache
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
+def normalize_origin(value: str, default_scheme: str = "https") -> str:
+    """Turn a hostname such as service.onrender.com into a valid origin URL."""
+    value = (value or "").strip().rstrip("/")
+    if not value:
+        return value
+    if value.startswith(("http://", "https://")):
+        return value
+    if value.startswith(("localhost", "127.0.0.1")):
+        return f"http://{value}"
+    return f"{default_scheme}://{value}"
+
+
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
 
@@ -23,9 +35,10 @@ class Settings(BaseSettings):
     # --- Database ---
     DATABASE_URL: str = "sqlite:///./aura.db"
 
-# --- Gemini ---
+    # --- Gemini ---
     GEMINI_API_KEY: str = ""
     GEMINI_MODEL: str = "gemini-2.5-flash"
+
     # --- Google OAuth ---
     GOOGLE_CLIENT_ID: str = ""
     GOOGLE_CLIENT_SECRET: str = ""
@@ -34,6 +47,14 @@ class Settings(BaseSettings):
     # --- Sync ---
     AUTO_SYNC_INTERVAL_MINUTES: int = 15
     MAX_EMAILS_PER_SYNC: int = 40
+
+    @property
+    def frontend_origin(self) -> str:
+        return normalize_origin(self.FRONTEND_URL)
+
+    @property
+    def backend_origin(self) -> str:
+        return normalize_origin(self.BACKEND_URL)
 
 
 @lru_cache
