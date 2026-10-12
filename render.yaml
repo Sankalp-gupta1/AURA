@@ -21,11 +21,15 @@ services:
           name: aura-db
           property: connectionString
       - key: FRONTEND_URL
-        value: https://aura-frontend-gmuw.onrender.com
+        fromService:
+          name: aura-frontend
+          type: web
+          envVarKey: RENDER_EXTERNAL_HOSTNAME
       - key: BACKEND_URL
-        value: https://aura-backend-0l5h.onrender.com
-      - key: GOOGLE_REDIRECT_URI
-        value: https://aura-backend-0l5h.onrender.com/api/auth/google/callback
+        fromService:
+          name: aura-backend
+          type: web
+          envVarKey: RENDER_EXTERNAL_HOSTNAME
       - key: GEMINI_API_KEY
         sync: false
       - key: GEMINI_MODEL
@@ -55,7 +59,10 @@ services:
       - key: NODE_VERSION
         value: 22.17.0
       - key: NEXT_PUBLIC_API_URL
-        value: https://aura-backend-0l5h.onrender.com
+        fromService:
+          name: aura-backend
+          type: web
+          envVarKey: RENDER_EXTERNAL_HOSTNAME
 
 databases:
   - name: aura-db
