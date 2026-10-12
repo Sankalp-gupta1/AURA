@@ -6,7 +6,7 @@ from google_auth_oauthlib.flow import Flow
 from google.oauth2.credentials import Credentials
 from google.auth.transport.requests import Request as GoogleRequest
 
-from app.core.config import settings
+from app.core.config import settings, normalize_origin
 from app.core.security import decrypt_secret
 
 logger = logging.getLogger(__name__)
@@ -22,11 +22,17 @@ SCOPES = [
 
 def _redirect_uri() -> str:
     configured = settings.GOOGLE_REDIRECT_URI.strip()
+
+    if settings.ENVIRONMENT == "development":
+        return configured or "http://localhost:8000/api/auth/google/callback"
+
     if configured and "localhost" not in configured:
-        return configured
-    if settings.ENVIRONMENT != "development" and settings.BACKEND_URL:
-        return f"{settings.BACKEND_URL.rstrip('/')}/api/auth/google/callback"
-    return configured or "http://localhost:8000/api/auth/google/callback"
+        return normalize_origin(configured)
+
+    if settings.backend_origin:
+        return f"{settings.backend_origin}/api/auth/google/callback"
+
+    return "http://localhost:8000/api/auth/google/callback"
 
 
 def _client_config() -> dict:
