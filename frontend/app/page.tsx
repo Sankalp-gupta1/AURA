@@ -69,7 +69,9 @@ export default async function LandingPage({
       </section>
 
       <footer className="text-center py-6 font-mono-ui text-[11px] text-[var(--color-muted)]">
-        AURA · built for people who are tired of managing their inbox
+        <span>AURA · built for people who are tired of managing their inbox</span>
+        <span className="mx-2">·</span>
+        <a className="underline hover:text-[var(--color-text)]" href="/privacy">Privacy</a>
       </footer>
     </main>
   );

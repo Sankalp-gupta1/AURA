@@ -42,13 +42,14 @@ def _client_config() -> dict:
     }
 
 
-def build_auth_url() -> str:
+def build_auth_url(state: str | None = None) -> str:
     redirect_uri = _redirect_uri()
     flow = Flow.from_client_config(_client_config(), scopes=SCOPES, redirect_uri=redirect_uri)
     auth_url, _state = flow.authorization_url(
         access_type="offline",
         include_granted_scopes="true",
         prompt="consent",
+        state=state,
     )
     return auth_url
 
