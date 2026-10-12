@@ -1,4 +1,9 @@
-export const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+const rawApiBase = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+
+export const API_BASE =
+  rawApiBase.startsWith("http://") || rawApiBase.startsWith("https://")
+    ? rawApiBase.replace(/\/$/, "")
+    : `https://${rawApiBase.replace(/\/$/, "")}`;
 
 export class ApiError extends Error {
   status: number;
