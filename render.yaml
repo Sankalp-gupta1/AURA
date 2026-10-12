@@ -48,11 +48,13 @@ services:
     region: singapore
     rootDir: frontend
     buildCommand: npm ci && npm run build
-    startCommand: npm start
+    startCommand: npm run start -- -p $PORT
     autoDeployTrigger: commit
     envVars:
       - key: NODE_ENV
         value: production
+      - key: NODE_VERSION
+        value: 22.17.0
       - key: NEXT_PUBLIC_API_URL
         fromService:
           name: aura-backend
