@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { BrainCircuit, Trash2, Plus } from "lucide-react";
-import { api, Memory } from "@/lib/api";
+import { Memory } from "@/lib/api";
 
 const categoryColor: Record<string, string> = {
   goal: "var(--color-amber)",
