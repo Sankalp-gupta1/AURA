@@ -60,7 +60,7 @@ def google_callback(
     aura_oauth_state: str | None = Cookie(default=None),
     db: Session = Depends(get_db),
 ):
-    frontend = settings.FRONTEND_URL.rstrip("/")
+    frontend = settings.frontend_origin
 
     if not state or not aura_oauth_state or not secrets.compare_digest(state, aura_oauth_state):
         response = RedirectResponse(f"{frontend}/?error=oauth_state")
