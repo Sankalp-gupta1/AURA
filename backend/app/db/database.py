@@ -3,9 +3,23 @@ from sqlalchemy.orm import sessionmaker, DeclarativeBase
 
 from app.core.config import settings
 
-connect_args = {"check_same_thread": False} if settings.DATABASE_URL.startswith("sqlite") else {}
+database_url = settings.DATABASE_URL
 
-engine = create_engine(settings.DATABASE_URL, connect_args=connect_args)
+# Render/Neon and several managed Postgres providers expose URLs as
+# postgresql:// or postgres://. Explicitly select psycopg v3 so production
+# does not depend on the legacy psycopg2 driver.
+if database_url.startswith("postgres://"):
+    database_url = "postgresql+psycopg://" + database_url[len("postgres://"):]
+elif database_url.startswith("postgresql://") and "+" not in database_url.split("://", 1)[0]:
+    database_url = "postgresql+psycopg://" + database_url[len("postgresql://"):]
+
+connect_args = {"check_same_thread": False} if database_url.startswith("sqlite") else {}
+
+engine = create_engine(
+    database_url,
+    connect_args=connect_args,
+    pool_pre_ping=True,
+)
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 
@@ -22,7 +36,8 @@ def get_db():
 
 
 def init_db() -> None:
-    # Import models so they register on Base.metadata before create_all
+    # Import models so they register on Base.metadata before create_all.
+    # Production uses a fresh managed Postgres database for the initial deploy.
     from app.models import (  # noqa: F401
         user,
         email_model,
