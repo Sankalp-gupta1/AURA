@@ -1,4 +1,5 @@
 import logging
+from urllib.parse import quote
 
 from fastapi import APIRouter, Depends, HTTPException, Response
 from fastapi.responses import RedirectResponse
@@ -6,7 +7,7 @@ from sqlalchemy.orm import Session
 from googleapiclient.discovery import build
 
 from app.core.config import settings
-from app.core.security import create_access_token
+from app.core.security import create_access_token, encrypt_secret
 from app.db.database import get_db
 from app.models.user import User
 from app.services import google_oauth
@@ -23,7 +24,7 @@ COOKIE_NAME = "aura_session"
 @router.get("/google/login")
 def google_login():
     if not settings.GOOGLE_CLIENT_ID or not settings.GOOGLE_CLIENT_SECRET:
-        raise HTTPException(500, "Google OAuth is not configured on the server (.env missing).")
+        raise HTTPException(500, "Google OAuth is not configured on the server.")
     return RedirectResponse(google_oauth.build_auth_url())
 
 
@@ -33,7 +34,7 @@ def google_callback(code: str, db: Session = Depends(get_db)):
         creds = google_oauth.exchange_code(code)
     except Exception:
         logger.exception("OAuth code exchange failed")
-        return RedirectResponse(f"{settings.FRONTEND_URL}/login?error=oauth_failed")
+        return RedirectResponse(f"{settings.FRONTEND_URL.rstrip('/')}/?error=oauth_failed")
 
     userinfo = build("oauth2", "v2", credentials=creds, cache_discovery=False).userinfo().get().execute()
     google_id = userinfo["id"]
@@ -44,9 +45,9 @@ def google_callback(code: str, db: Session = Depends(get_db)):
 
     user.name = userinfo.get("name", "")
     user.picture = userinfo.get("picture", "")
-    user.access_token = creds.token
+    user.access_token = encrypt_secret(creds.token or "")
     if creds.refresh_token:  # Google only sends this on first consent
-        user.refresh_token = creds.refresh_token
+        user.refresh_token = encrypt_secret(creds.refresh_token)
     user.token_expiry = google_oauth.expiry_to_str(creds)
     user.granted_scopes = " ".join(creds.scopes or [])
 
@@ -61,13 +62,31 @@ def google_callback(code: str, db: Session = Depends(get_db)):
         logger.exception("Initial sync after login failed for user %s", user.id)
 
     token = create_access_token(user.id)
-    response = RedirectResponse(f"{settings.FRONTEND_URL}/dashboard")
+    frontend = settings.FRONTEND_URL.rstrip("/")
+
+    # Local development keeps the original cookie-only flow.
+    # Production also hands the JWT to the frontend in the URL fragment
+    # (fragments are not sent in HTTP requests/server logs), which avoids
+    # cross-site cookie restrictions between separate Render services.
+    if settings.ENVIRONMENT == "development":
+        response = RedirectResponse(f"{frontend}/dashboard")
+        response.set_cookie(
+            key=COOKIE_NAME,
+            value=token,
+            httponly=True,
+            samesite="lax",
+            secure=False,
+            max_age=60 * 60 * 24 * 7,
+        )
+        return response
+
+    response = RedirectResponse(f"{frontend}/auth/callback#token={quote(token)}")
     response.set_cookie(
         key=COOKIE_NAME,
         value=token,
         httponly=True,
-        samesite="lax",
-        secure=settings.ENVIRONMENT != "development",
+        samesite="none",
+        secure=True,
         max_age=60 * 60 * 24 * 7,
     )
     return response
@@ -75,7 +94,12 @@ def google_callback(code: str, db: Session = Depends(get_db)):
 
 @router.post("/logout")
 def logout(response: Response):
-    response.delete_cookie(COOKIE_NAME)
+    production = settings.ENVIRONMENT != "development"
+    response.delete_cookie(
+        COOKIE_NAME,
+        samesite="none" if production else "lax",
+        secure=production,
+    )
     return {"ok": True}
 
 

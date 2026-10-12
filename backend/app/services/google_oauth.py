@@ -1,9 +1,4 @@
-"""
-Handles the Google OAuth2 dance for Gmail + Calendar access.
-No client secret JSON file needed - everything comes from env vars,
-which makes deployment (and giving Claude your key) much simpler than
-the original repo's token.json file dependency.
-"""
+"""Google OAuth2 helpers for Gmail + Calendar access."""
 import logging
 from datetime import datetime, timedelta, timezone
 
@@ -12,6 +7,7 @@ from google.oauth2.credentials import Credentials
 from google.auth.transport.requests import Request as GoogleRequest
 
 from app.core.config import settings
+from app.core.security import decrypt_secret
 
 logger = logging.getLogger(__name__)
 
@@ -24,39 +20,51 @@ SCOPES = [
 ]
 
 
+def _redirect_uri() -> str:
+    configured = settings.GOOGLE_REDIRECT_URI.strip()
+    if configured and "localhost" not in configured:
+        return configured
+    if settings.ENVIRONMENT != "development" and settings.BACKEND_URL:
+        return f"{settings.BACKEND_URL.rstrip('/')}/api/auth/google/callback"
+    return configured or "http://localhost:8000/api/auth/google/callback"
+
+
 def _client_config() -> dict:
+    redirect_uri = _redirect_uri()
     return {
         "web": {
             "client_id": settings.GOOGLE_CLIENT_ID,
             "client_secret": settings.GOOGLE_CLIENT_SECRET,
             "auth_uri": "https://accounts.google.com/o/oauth2/auth",
             "token_uri": "https://oauth2.googleapis.com/token",
-            "redirect_uris": [settings.GOOGLE_REDIRECT_URI],
+            "redirect_uris": [redirect_uri],
         }
     }
 
 
 def build_auth_url() -> str:
-    flow = Flow.from_client_config(_client_config(), scopes=SCOPES, redirect_uri=settings.GOOGLE_REDIRECT_URI)
+    redirect_uri = _redirect_uri()
+    flow = Flow.from_client_config(_client_config(), scopes=SCOPES, redirect_uri=redirect_uri)
     auth_url, _state = flow.authorization_url(
         access_type="offline",
         include_granted_scopes="true",
-        prompt="consent",  # ensures a refresh_token is issued every time
+        prompt="consent",
     )
     return auth_url
 
 
 def exchange_code(code: str) -> Credentials:
-    flow = Flow.from_client_config(_client_config(), scopes=SCOPES, redirect_uri=settings.GOOGLE_REDIRECT_URI)
+    redirect_uri = _redirect_uri()
+    flow = Flow.from_client_config(_client_config(), scopes=SCOPES, redirect_uri=redirect_uri)
     flow.fetch_token(code=code)
     return flow.credentials
 
 
 def credentials_from_user(user) -> Credentials:
-    """Rebuild a Credentials object from what we stored on the user row, refreshing if needed."""
+    """Rebuild Google credentials from encrypted DB values and refresh if needed."""
     creds = Credentials(
-        token=user.access_token,
-        refresh_token=user.refresh_token,
+        token=decrypt_secret(user.access_token),
+        refresh_token=decrypt_secret(user.refresh_token),
         token_uri="https://oauth2.googleapis.com/token",
         client_id=settings.GOOGLE_CLIENT_ID,
         client_secret=settings.GOOGLE_CLIENT_SECRET,

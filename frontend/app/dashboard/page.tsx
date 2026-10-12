@@ -103,8 +103,12 @@ export default function DashboardPage() {
   };
 
   const handleLogout = async () => {
-    await api.logout();
-    router.replace("/");
+    try {
+      await api.logout();
+    } finally {
+      window.localStorage.removeItem("aura_token");
+      router.replace("/");
+    }
   };
 
   const handleCreateTask = async (title: string) => {
@@ -157,8 +161,6 @@ export default function DashboardPage() {
     setMemories((m) => m.filter((x) => x.id !== id));
   };
 
-  // When an autonomous action executes (e.g. creates a calendar event or a
-  // new sub-task), refresh the lists that could have changed as a result.
   const handleActionResolved = () => {
     loadCore();
   };

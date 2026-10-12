@@ -9,11 +9,18 @@ export class ApiError extends Error {
 }
 
 async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
+  const authHeaders: Record<string, string> = {};
+  if (typeof window !== "undefined") {
+    const token = window.localStorage.getItem("aura_token");
+    if (token) authHeaders.Authorization = `Bearer ${token}`;
+  }
+
   const res = await fetch(`${API_BASE}${path}`, {
     ...options,
     credentials: "include",
     headers: {
       "Content-Type": "application/json",
+      ...authHeaders,
       ...(options.headers || {}),
     },
   });
@@ -65,12 +72,10 @@ export const api = {
   createNote: (content: string) => request<Note>("/api/notes", { method: "POST", body: JSON.stringify({ content }) }),
   deleteNote: (id: number) => request(`/api/notes/${id}`, { method: "DELETE" }),
 
-  // Long-term memory
   memories: () => request<Memory[]>("/api/memory"),
   addMemory: (content: string) => request<Memory>("/api/memory", { method: "POST", body: JSON.stringify({ content }) }),
   forgetMemory: (id: number) => request(`/api/memory/${id}`, { method: "DELETE" }),
 
-  // Autonomous task execution
   planTask: (taskId: number) => request<AgentAction[]>(`/api/tasks/${taskId}/plan`, { method: "POST" }),
   approveAction: (id: number) => request<AgentAction>(`/api/actions/${id}/approve`, { method: "POST" }),
   rejectAction: (id: number) => request<AgentAction>(`/api/actions/${id}/reject`, { method: "POST" }),
