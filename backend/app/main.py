@@ -1,9 +1,10 @@
 import logging
 from contextlib import asynccontextmanager
+from pathlib import Path
 
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
+from fastapi.responses import FileResponse, JSONResponse
 
 from app.core.config import settings
 from app.core.logging_config import setup_logging
@@ -53,6 +54,16 @@ app.include_router(ask.router)
 app.include_router(notes.router)
 app.include_router(memory.router)
 app.include_router(actions.router)
+
+
+@app.get("/googlee9dc7450537262e6.html", include_in_schema=False)
+def google_site_verification():
+    # Keep this file available after verification so Search Console ownership
+    # remains valid. Only this exact public file is exposed.
+    return FileResponse(
+        Path(__file__).parent / "static" / "googlee9dc7450537262e6.html",
+        media_type="text/html",
+    )
 
 
 @app.get("/")
