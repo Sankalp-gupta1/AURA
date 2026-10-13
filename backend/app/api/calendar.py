@@ -1,4 +1,5 @@
 from typing import List
+import logging
 
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
@@ -11,6 +12,7 @@ from app.api.deps import get_current_user
 from app.services import calendar_service
 
 router = APIRouter(prefix="/api/calendar", tags=["calendar"])
+logger = logging.getLogger(__name__)
 
 
 @router.get("", response_model=List[EventOut])
@@ -24,8 +26,9 @@ def create_event(payload: EventCreate, db: Session = Depends(get_db), user: User
         created = calendar_service.create_event(
             user, payload.title, payload.start_time, payload.end_time, payload.description, payload.location
         )
-    except Exception as exc:
-        raise HTTPException(502, f"Could not create event on Google Calendar: {exc}")
+    except Exception:
+        logger.exception("Calendar event creation failed for user %s", user.id)
+        raise HTTPException(502, "Could not save the event. Try again or reconnect Google Calendar.")
 
     row = Event(user_id=user.id, **created)
     db.add(row)

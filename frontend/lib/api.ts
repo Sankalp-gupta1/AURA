@@ -23,6 +23,7 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
   const res = await fetch(`${API_BASE}${path}`, {
     ...options,
     credentials: "include",
+    signal: options.signal ?? AbortSignal.timeout(120_000),
     headers: {
       "Content-Type": "application/json",
       ...authHeaders,
@@ -115,6 +116,8 @@ export type SyncResult = {
   new_events: number;
   new_tasks: number;
   synced_at: string;
+  status: "ok" | "partial" | "failed";
+  warnings: string[];
 };
 
 export type Email = {

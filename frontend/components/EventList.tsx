@@ -9,23 +9,38 @@ export default function EventList({
   onCreate,
 }: {
   events: CalEvent[];
-  onCreate: (payload: { title: string; start_time: string; end_time: string; location: string }) => void;
+  onCreate: (payload: { title: string; start_time: string; end_time: string; location: string }) => Promise<void>;
 }) {
   const [open, setOpen] = useState(false);
   const [title, setTitle] = useState("");
   const [start, setStart] = useState("");
   const [end, setEnd] = useState("");
   const [location, setLocation] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
 
-  const submit = (e: React.FormEvent) => {
+  const submit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!title.trim() || !start || !end) return;
-    onCreate({ title, start_time: start, end_time: end, location });
-    setTitle("");
-    setStart("");
-    setEnd("");
-    setLocation("");
-    setOpen(false);
+    setError("");
+    if (new Date(end) <= new Date(start)) {
+      setError("The end time must be after the start time.");
+      return;
+    }
+    setSaving(true);
+    try {
+      // datetime-local has no offset. Convert the user's local time to UTC for Google.
+      await onCreate({ title: title.trim(), start_time: new Date(start).toISOString(), end_time: new Date(end).toISOString(), location });
+      setTitle("");
+      setStart("");
+      setEnd("");
+      setLocation("");
+      setOpen(false);
+    } catch {
+      setError("The event was not saved. Please try again or reconnect Google Calendar.");
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (
@@ -47,16 +62,22 @@ export default function EventList({
             value={title}
             onChange={(e) => setTitle(e.target.value)}
             placeholder="Event title"
+            aria-label="Event title"
+            required
             className="focus-ring col-span-2 bg-transparent border border-[var(--color-line)] px-2 py-1.5 text-xs placeholder:text-[var(--color-muted)]"
           />
           <input
             type="datetime-local"
+            aria-label="Start time"
+            required
             value={start}
             onChange={(e) => setStart(e.target.value)}
             className="focus-ring bg-transparent border border-[var(--color-line)] px-2 py-1.5 text-xs"
           />
           <input
             type="datetime-local"
+            aria-label="End time"
+            required
             value={end}
             onChange={(e) => setEnd(e.target.value)}
             className="focus-ring bg-transparent border border-[var(--color-line)] px-2 py-1.5 text-xs"
@@ -65,14 +86,18 @@ export default function EventList({
             value={location}
             onChange={(e) => setLocation(e.target.value)}
             placeholder="Location (optional)"
+            aria-label="Location (optional)"
             className="focus-ring col-span-2 bg-transparent border border-[var(--color-line)] px-2 py-1.5 text-xs placeholder:text-[var(--color-muted)]"
           />
           <button
             type="submit"
+            disabled={saving}
             className="focus-ring col-span-2 bg-[var(--color-amber)] text-[var(--color-ink)] py-1.5 text-xs font-semibold hover:brightness-110 transition"
           >
-            ADD TO GOOGLE CALENDAR
+            {saving ? "SAVING…" : "ADD TO GOOGLE CALENDAR"}
           </button>
+          <p className="col-span-2 text-xs text-[var(--color-muted)]">Times use your device&apos;s timezone.</p>
+          {error && <p role="alert" className="col-span-2 text-xs text-[var(--color-coral)]">{error}</p>}
         </form>
       )}
 
@@ -99,6 +124,7 @@ export default function EventList({
               <a
                 href={ev.meet_link}
                 target="_blank"
+                rel="noopener noreferrer"
                 className="text-xs text-[var(--color-amber)] flex items-center gap-1 mt-1 hover:underline"
               >
                 <Video className="w-3 h-3" /> Join meet

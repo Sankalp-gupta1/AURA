@@ -2,8 +2,10 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import {
   api,
+  API_BASE,
   ApiError,
   User,
   DashboardStats,
@@ -39,6 +41,7 @@ export default function DashboardPage() {
   const [syncing, setSyncing] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [notice, setNotice] = useState("");
 
   const loadCore = useCallback(async () => {
     const [statsData, tasksData, emailsData, eventsData, notesData, memoriesData] = await Promise.all([
@@ -74,13 +77,13 @@ export default function DashboardPage() {
         const me = await api.me();
         setUser(me);
         await loadCore();
-        await loadBriefing();
+        void loadBriefing();
       } catch (err) {
         if (err instanceof ApiError && err.status === 401) {
           router.replace("/");
           return;
         }
-        setError("Could not reach the AURA backend. Is it running?");
+        setError("AURA could not load your workspace. The service may be waking up. Please try again in a moment.");
       } finally {
         setLoading(false);
       }
@@ -89,14 +92,18 @@ export default function DashboardPage() {
 
   const handleSync = async () => {
     setSyncing(true);
+    setError("");
+    setNotice("");
     try {
-      await api.sync();
+      const result = await api.sync();
+      if (result.warnings?.length) setError(result.warnings.join(" "));
+      else setNotice(`Up to date. Added ${result.new_emails} emails, ${result.new_events} events and ${result.new_tasks} tasks.`);
       await loadCore();
       await loadBriefing(true);
       const me = await api.me();
       setUser(me);
     } catch {
-      setError("Sync failed. Check that your Google + Gemini keys are configured.");
+      setError("We could not finish syncing. Try again, or reconnect Google if your access has expired.");
     } finally {
       setSyncing(false);
     }
@@ -132,13 +139,9 @@ export default function DashboardPage() {
     setEmails(await api.emails(q ? { search: q } : {}));
   };
 
-  const handleCreateEvent = async (payload: { title: string; start_time: string; end_time: string }) => {
-    try {
-      const ev = await api.createEvent(payload);
-      setEvents((e) => [...e, ev].sort((a, b) => a.start_time.localeCompare(b.start_time)));
-    } catch {
-      setError("Could not create the calendar event. Check Calendar permission was granted.");
-    }
+  const handleCreateEvent = async (payload: { title: string; start_time: string; end_time: string; location: string }) => {
+    const ev = await api.createEvent(payload);
+    setEvents((e) => [...e, ev].sort((a, b) => a.start_time.localeCompare(b.start_time)));
   };
 
   const handleCreateNote = async (content: string) => {
@@ -162,18 +165,30 @@ export default function DashboardPage() {
   };
 
   const handleActionResolved = () => {
-    loadCore();
+    void loadCore().catch(() => setError("Your action was saved, but the workspace could not refresh. Please reload."));
   };
 
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
-        <p className="font-mono-ui text-sm text-[var(--color-muted)] animate-pulse">BOOTING AURA…</p>
+        <div className="text-center p-6 space-y-3">
+          <p className="font-display text-xl animate-pulse">Opening your workspace…</p>
+          <p className="text-sm text-[var(--color-muted)]">The first visit can take about a minute while AURA wakes up.</p>
+        </div>
       </div>
     );
   }
 
-  if (!user) return null;
+  if (!user) return (
+    <main className="min-h-screen flex items-center justify-center p-6">
+      <div className="panel p-8 max-w-md space-y-5">
+        <h1 className="font-display text-xl">Let&apos;s try that again</h1>
+        <p className="text-sm text-[var(--color-muted)]" role="alert">{error || "Please sign in to open your workspace."}</p>
+        <button className="focus-ring badge" onClick={() => window.location.reload()}>Try again</button>
+        <Link href="/" className="ml-5 text-sm underline">Back to sign in</Link>
+      </div>
+    </main>
+  );
 
   return (
     <main className="min-h-screen pb-24">
@@ -181,8 +196,22 @@ export default function DashboardPage() {
 
       <div className="px-6 md:px-10 py-8 max-w-7xl mx-auto space-y-6">
         {error && (
-          <div className="panel p-4 border-[var(--color-coral)] text-sm text-[var(--color-coral)]">{error}</div>
+          <div role="alert" className="panel p-4 border-[var(--color-coral)] text-sm text-[var(--color-coral)]">
+            {error} <a className="underline ml-2" href={`${API_BASE}/api/auth/google/login`}>Reconnect Google</a>
+          </div>
         )}
+        {notice && <p role="status" className="panel p-4 text-sm text-[var(--color-teal)]">{notice}</p>}
+
+        <section className="panel p-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div>
+            <p className="font-mono-ui text-xs text-[var(--color-teal)] mb-2">YOUR PERSONAL WORKSPACE</p>
+            <h1 className="font-display text-2xl font-semibold">Welcome{user.name ? `, ${user.name.split(" ")[0]}` : ""}.</h1>
+            <p className="text-sm text-[var(--color-muted)] mt-2">
+              {user.last_synced_at ? "Review your priorities, plan your day, or ask AURA a question." : "Start by syncing your Gmail and Calendar. Then review your briefing and suggested tasks."}
+            </p>
+          </div>
+          {!user.last_synced_at && <button onClick={handleSync} disabled={syncing} className="focus-ring bg-[var(--color-amber)] text-[var(--color-ink)] px-5 py-3 font-semibold disabled:opacity-50">{syncing ? "Syncing your account…" : "Sync my account"}</button>}
+        </section>
 
         {stats && <StatStrip stats={stats} />}
 

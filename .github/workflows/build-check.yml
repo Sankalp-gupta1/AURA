@@ -24,6 +24,8 @@ jobs:
           cache: "pip"
           cache-dependency-path: backend/requirements.txt
       - run: pip install -r requirements.txt
+      - name: Check account isolation and Google connection behavior
+        run: python -m unittest discover -s tests -v
       - name: Import backend app
         env:
           ENVIRONMENT: production
@@ -45,7 +47,7 @@ jobs:
           node-version: "22.17.0"
           cache: "npm"
           cache-dependency-path: frontend/package-lock.json
-      - run: npm install
+      - run: npm ci
       - name: Build frontend
         env:
           NEXT_PUBLIC_API_URL: https://example-backend.onrender.com

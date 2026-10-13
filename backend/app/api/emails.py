@@ -1,6 +1,6 @@
 from typing import List, Optional
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import or_
 from sqlalchemy.orm import Session
 
@@ -35,4 +35,7 @@ def list_emails(
 
 @router.get("/{email_id}", response_model=EmailOut)
 def get_email(email_id: int, db: Session = Depends(get_db), user: User = Depends(get_current_user)):
-    return db.query(Email).filter(Email.id == email_id, Email.user_id == user.id).first()
+    email = db.query(Email).filter(Email.id == email_id, Email.user_id == user.id).first()
+    if not email:
+        raise HTTPException(404, "Email not found")
+    return email

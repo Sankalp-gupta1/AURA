@@ -1,10 +1,14 @@
 # AURA — Personal AI Operating System
 
-## Live app
+## Public demo — sample data
 
 **https://aura-personal-ai-demo.vercel.app/**
 
 A public demo workspace is now available in `web/`.
+
+**This demo does not connect to your Google account.** The real account-connected
+application is in `frontend/` and `backend/`. See [Deployment and Google sign-in](docs/DEPLOYMENT.md)
+for its exact setup, access limits and verification checks.
 
 The demo provides a usable product experience without exposing private Gmail data or requiring Google/Gemini credentials:
 

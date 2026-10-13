@@ -1,5 +1,6 @@
 from typing import Optional, List
-from pydantic import BaseModel
+from pydantic import BaseModel, model_validator
+from datetime import datetime
 
 
 class UserOut(BaseModel):
@@ -75,6 +76,18 @@ class EventCreate(BaseModel):
     end_time: str
     description: str = ""
     location: str = ""
+
+    @model_validator(mode="after")
+    def validate_event_times(self):
+        start = datetime.fromisoformat(self.start_time.replace("Z", "+00:00"))
+        end = datetime.fromisoformat(self.end_time.replace("Z", "+00:00"))
+        if start.tzinfo is None or end.tzinfo is None:
+            raise ValueError("Event times must include a timezone offset")
+        if end <= start:
+            raise ValueError("Event end must be after its start")
+        if not self.title.strip():
+            raise ValueError("Event title is required")
+        return self
 
 
 class NoteCreate(BaseModel):

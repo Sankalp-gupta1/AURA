@@ -48,7 +48,7 @@ export default function TopBar({
               <div className="w-7 h-7 rounded-full bg-[var(--color-panel-2)]" />
             )}
             <span className="text-sm hidden md:block">{user.name || user.email}</span>
-            <button onClick={onLogout} className="focus-ring text-[var(--color-muted)] hover:text-[var(--color-coral)] transition ml-1">
+            <button onClick={onLogout} aria-label="Sign out" title="Sign out" className="focus-ring text-[var(--color-muted)] hover:text-[var(--color-coral)] transition ml-1">
               <LogOut className="w-4 h-4" />
             </button>
           </div>

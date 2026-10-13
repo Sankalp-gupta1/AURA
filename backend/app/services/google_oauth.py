@@ -7,7 +7,7 @@ from google.oauth2.credentials import Credentials
 from google.auth.transport.requests import Request as GoogleRequest
 
 from app.core.config import settings, normalize_origin
-from app.core.security import decrypt_secret
+from app.core.security import decrypt_secret, encrypt_secret
 
 logger = logging.getLogger(__name__)
 
@@ -69,22 +69,39 @@ def exchange_code(code: str) -> Credentials:
 
 def credentials_from_user(user) -> Credentials:
     """Rebuild Google credentials from encrypted DB values and refresh if needed."""
+    expiry = None
+    if user.token_expiry:
+        try:
+            # google-auth compares expiry to a naive UTC datetime.
+            expiry = datetime.fromisoformat(user.token_expiry.replace("Z", "+00:00"))
+            if expiry.tzinfo:
+                expiry = expiry.astimezone(timezone.utc).replace(tzinfo=None)
+        except ValueError:
+            pass
     creds = Credentials(
         token=decrypt_secret(user.access_token),
         refresh_token=decrypt_secret(user.refresh_token),
         token_uri="https://oauth2.googleapis.com/token",
         client_id=settings.GOOGLE_CLIENT_ID,
         client_secret=settings.GOOGLE_CLIENT_SECRET,
-        scopes=SCOPES,
+        scopes=user.granted_scopes.split() or SCOPES,
+        expiry=expiry,
     )
 
     if not creds.valid:
-        if creds.expired and creds.refresh_token:
+        if creds.refresh_token:
             try:
                 creds.refresh(GoogleRequest())
+                # The caller's unit of work commits these updated encrypted values.
+                user.access_token = encrypt_secret(creds.token or "")
+                user.token_expiry = expiry_to_str(creds)
+                if creds.refresh_token:
+                    user.refresh_token = encrypt_secret(creds.refresh_token)
             except Exception:
                 logger.exception("Failed to refresh Google token for user %s", user.id)
                 raise
+        else:
+            raise ValueError("Reconnect Google to renew access")
     return creds
 
 

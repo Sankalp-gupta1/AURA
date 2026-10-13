@@ -7,6 +7,11 @@ export default async function LandingPage({
   searchParams: Promise<{ error?: string }>;
 }) {
   const params = await searchParams;
+  const errors: Record<string, string> = {
+    oauth_cancelled: "Google sign-in was cancelled. You can try again whenever you are ready.",
+    oauth_state: "That sign-in link expired. Start again using the button below.",
+    oauth_failed: "We could not complete Google sign-in. Please try again.",
+  };
 
   return (
     <main className="min-h-screen flex flex-col">
@@ -25,8 +30,8 @@ export default async function LandingPage({
 
       <section className="flex-1 flex flex-col items-center justify-center px-6 text-center max-w-3xl mx-auto">
         {params.error && (
-          <div className="mb-6 badge border-[var(--color-coral)] text-[var(--color-coral)]">
-            SIGN-IN FAILED — TRY AGAIN
+          <div role="alert" className="mb-6 panel p-4 text-sm border-[var(--color-coral)] text-[var(--color-coral)]">
+            {errors[params.error] || errors.oauth_failed}
           </div>
         )}
 
@@ -38,8 +43,8 @@ export default async function LandingPage({
           above the noise.
         </h1>
         <p className="mt-6 text-[var(--color-muted)] text-base md:text-lg max-w-xl text-balance">
-          AURA reads your inbox and calendar, extracts what actually needs your attention, and
-          gives you a daily briefing you can act on — not another feed to scroll.
+          Bring your Gmail, calendar and tasks into one clear workspace.
+          See what needs your attention, plan your day and ask questions about your own information.
         </p>
 
         <a
@@ -47,17 +52,21 @@ export default async function LandingPage({
           className="focus-ring mt-10 inline-flex items-center gap-3 bg-[var(--color-amber)] text-[var(--color-ink)] font-semibold px-6 py-3.5 hover:brightness-110 transition"
         >
           <Mail className="w-5 h-5" />
-          Connect Google Account
+          Get started with Google
         </a>
         <p className="mt-3 font-mono-ui text-[11px] text-[var(--color-muted)]">
-          READ-ONLY GMAIL ACCESS · CALENDAR EVENTS · REVOKE ANYTIME
+          Gmail is read-only. You decide which calendar actions to approve.
+        </p>
+        <p className="mt-4 text-xs text-[var(--color-muted)] max-w-md leading-relaxed">
+          Early access: Google sign-in is currently available to approved test users.
+          Your first connection may take about a minute while the service wakes up.
         </p>
 
         <div className="mt-16 grid grid-cols-1 sm:grid-cols-3 gap-4 w-full">
           {[
-            { icon: Mail, label: "Gmail Intelligence", desc: "Priority + category on every message" },
-            { icon: ListChecks, label: "Task Extraction", desc: "Deadlines pulled straight from emails" },
-            { icon: CalendarClock, label: "Daily Briefing", desc: "One summary, generated fresh each morning" },
+            { icon: Mail, label: "1. Connect and sync", desc: "Choose your Google account and bring in recent emails and upcoming events." },
+            { icon: ListChecks, label: "2. Review your priorities", desc: "Check suggested tasks and deadlines. AI suggestions always need your judgment." },
+            { icon: CalendarClock, label: "3. Plan your day", desc: "Read your briefing, add a task or event, and ask AURA for help." },
           ].map(({ icon: Icon, label, desc }) => (
             <div key={label} className="panel p-5 text-left">
               <Icon className="w-4 h-4 text-[var(--color-amber)] mb-3" />

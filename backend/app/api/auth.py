@@ -12,7 +12,6 @@ from app.core.security import create_access_token, encrypt_secret
 from app.db.database import get_db
 from app.models.user import User
 from app.services import google_oauth
-from app.services.sync_service import sync_user_data
 from app.schemas.schemas import UserOut
 from app.api.deps import get_current_user
 
@@ -55,8 +54,9 @@ def google_login():
 
 @router.get("/google/callback")
 def google_callback(
-    code: str,
+    code: str = "",
     state: str = "",
+    error: str = "",
     aura_oauth_state: str | None = Cookie(default=None),
     db: Session = Depends(get_db),
 ):
@@ -67,16 +67,22 @@ def google_callback(
         _clear_oauth_state(response)
         return response
 
+    if error or not code:
+        response = RedirectResponse(f"{frontend}/?error=oauth_cancelled")
+        _clear_oauth_state(response)
+        return response
+
     try:
         creds = google_oauth.exchange_code(code)
+        userinfo = build("oauth2", "v2", credentials=creds, cache_discovery=False).userinfo().get().execute()
+        google_id = userinfo["id"]
+        if not userinfo.get("verified_email"):
+            raise ValueError("Google account email is not verified")
     except Exception:
         logger.exception("OAuth code exchange failed")
         response = RedirectResponse(f"{frontend}/?error=oauth_failed")
         _clear_oauth_state(response)
         return response
-
-    userinfo = build("oauth2", "v2", credentials=creds, cache_discovery=False).userinfo().get().execute()
-    google_id = userinfo["id"]
 
     user = db.query(User).filter(User.google_id == google_id).first()
     if not user:
@@ -88,16 +94,14 @@ def google_callback(
     if creds.refresh_token:
         user.refresh_token = encrypt_secret(creds.refresh_token)
     user.token_expiry = google_oauth.expiry_to_str(creds)
-    user.granted_scopes = " ".join(creds.scopes or [])
+    user.granted_scopes = " ".join(creds.granted_scopes or creds.scopes or [])
 
     db.add(user)
     db.commit()
     db.refresh(user)
 
-    try:
-        sync_user_data(db, user)
-    except Exception:
-        logger.exception("Initial sync after login failed for user %s", user.id)
+    # Return immediately. The dashboard offers an explicit first sync so a slow
+    # Google/AI request cannot time out an otherwise successful sign-in.
 
     token = create_access_token(user.id)
 

@@ -20,7 +20,7 @@ def decode_access_token(token: str) -> Optional[int]:
         payload = jwt.decode(token, settings.SECRET_KEY, algorithms=[settings.JWT_ALGORITHM])
         user_id = payload.get("sub")
         return int(user_id) if user_id is not None else None
-    except JWTError:
+    except (JWTError, ValueError, TypeError):
         return None
 
 
