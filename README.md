@@ -1,4 +1,50 @@
-# Personal-AI-Reasoning-Decision-System
+# AURA — Personal AI Operating System
+
+## Live app
+
+**https://aura-personal-ai-demo.vercel.app/**
+
+A public demo workspace is now available in `web/`.
+
+The demo provides a usable product experience without exposing private Gmail data or requiring Google/Gemini credentials:
+
+- dashboard statistics,
+- Chief-of-Staff briefing,
+- interactive task board,
+- searchable seeded email intelligence,
+- calendar events,
+- local notes,
+- simulated sync,
+- an Ask-AURA panel grounded in the demo workspace.
+
+### Full production architecture
+
+The repository's real application remains:
+
+- **Next.js frontend**
+- **FastAPI backend**
+- **Google OAuth**
+- **Gmail API**
+- **Google Calendar API**
+- **Gemini**
+- **SQLAlchemy / PostgreSQL in production**
+
+A real Gmail/Calendar deployment requires valid Google OAuth credentials, a Gemini API key, a secure application secret, a persistent database, and matching OAuth redirect URLs. Those secrets should never be committed to GitHub.
+
+The hosted demo exists so reviewers can use AURA immediately while the full OAuth-backed architecture remains intact.
+
+### Run demo locally
+
+```bash
+cd web
+python -m http.server 8000
+```
+
+### Run the full application locally
+
+Follow the backend and frontend setup already documented below.
+
+---
 
 > Transforming fragmented digital information into actionable intelligence through AI-powered reasoning, memory, prioritization, planning, and decision support.
 
