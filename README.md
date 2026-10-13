@@ -1,5 +1,26 @@
 # AURA — Personal AI Operating System
 
+## Live application — connect your own Google account
+
+**[Open AURA](https://aura-frontend-gmuw.onrender.com/)**
+
+The Next.js frontend and FastAPI backend are deployed on Render. Choose
+**Get started with Google**, then **Sync my account** to bring your recent emails
+and upcoming events into your workspace. The free backend may take about a minute
+to wake up on the first visit.
+
+**Access status:** Google OAuth is configured for external test users. Your Google
+email must be on the app's test-user list. This is not yet an unrestricted public
+Google integration. Live Google consent and account sync still need a real-account
+acceptance check; Google's sign-in page was unreachable from the verification browser.
+
+Deployment checks on October 13, 2026: the homepage and backend health endpoint
+returned HTTP 200, private API endpoints rejected signed-out requests, and the
+frontend's CORS origin and OAuth callback matched. The production frontend build
+and all nine backend integration tests passed, including account-isolation tests.
+
+[Deployment details, exact Google callback and troubleshooting](docs/DEPLOYMENT.md)
+
 ## Public demo — sample data
 
 **https://aura-personal-ai-demo.vercel.app/**

@@ -21,6 +21,20 @@ users. Check the Audience page before inviting anyone to connect a real account.
 
 The backend hostname contains the digits **015**, not `0l5` (a letter l).
 
+## Latest deployment verification
+
+On October 13, 2026, release `47d2e55` passed the frontend production build and
+nine backend integration tests, locally and in GitHub Actions. The deployed
+homepage and backend health check returned HTTP 200. Signed-out profile, Gmail
+and Calendar endpoints returned HTTP 401. The frontend's CORS preflight passed,
+and the backend generated the correct production OAuth callback.
+
+The actual Google sign-in page returned a connection error in the verification
+browser. Google consent, token exchange and live Gmail/Calendar sync therefore
+remain unverified. Before sharing with test users, confirm the exact callback in
+Google Cloud's client settings and perform one real sign-in and sync. Do not treat
+the mock-based tests as a replacement for this live check.
+
 ## Environment variables
 
 Set these public URLs on the relevant service. Keep all secrets on the backend.
