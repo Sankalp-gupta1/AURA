@@ -12,7 +12,8 @@
     "lucide-react": "^0.469.0",
     "next": "15.5.27",
     "react": "19.0.8",
-    "react-dom": "19.0.8"
+    "react-dom": "19.0.8",
+    "server-only": "0.0.1"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
@@ -23,5 +24,9 @@
     "eslint-config-next": "15.5.27",
     "tailwindcss": "^4",
     "typescript": "^5"
+  },
+  "overrides": {
+    "postcss": "8.5.30",
+    "source-map-js": "1.2.2"
   }
 }

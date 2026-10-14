@@ -1,10 +1,11 @@
 import logging
 from contextlib import asynccontextmanager
 from pathlib import Path
+from html import escape
 
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse, JSONResponse
+from fastapi.responses import FileResponse, HTMLResponse, JSONResponse
 
 from app.core.config import settings
 from app.core.logging_config import setup_logging
@@ -28,6 +29,17 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(title=settings.APP_NAME, version="2.0.0", lifespan=lifespan)
+
+@app.middleware("http")
+async def security_headers(request: Request, call_next):
+    response = await call_next(request)
+    response.headers["X-Content-Type-Options"] = "nosniff"
+    response.headers["X-Frame-Options"] = "DENY"
+    response.headers["Referrer-Policy"] = "no-referrer"
+    if request.url.path.startswith("/api/"):
+        response.headers["Cache-Control"] = "no-store"
+    return response
+
 
 app.add_middleware(
     CORSMiddleware,
@@ -67,5 +79,18 @@ def google_site_verification():
 
 
 @app.get("/")
-def root():
+def root(request: Request):
+    if "text/html" in request.headers.get("accept", ""):
+        frontend = escape(settings.frontend_origin, quote=True)
+        return HTMLResponse(f"""<!doctype html><html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>AURA — Application API</title>
+<style>body{{font:18px/1.7 system-ui,sans-serif;background:#101820;color:#ecf0f3;margin:0;padding:40px 24px}}main{{max-width:700px;margin:8vh auto}}a{{color:#f7c46d}}h1{{line-height:1.2}}small{{color:#b5c1cb}}</style>
+</head><body><main><small>AURA · PERSONAL PRODUCTIVITY</small>
+<h1>This is AURA's application API.</h1>
+<p>AURA is an independent app that brings your Gmail, calendar and tasks into one workspace. It is not a Google product.</p>
+<p>Use the AURA website to get started. Google sign-in takes place on Google's own website; AURA does not collect your Google password.</p>
+<p>Gmail access is read-only. Calendar changes require your action or approval. Google account access is currently limited to approved test users.</p>
+<p><a href="{frontend}/">Open the AURA website</a> · <a href="{frontend}/privacy">Privacy policy</a></p>
+</main></body></html>""", headers={"Content-Security-Policy": "default-src 'none'; style-src 'unsafe-inline'; base-uri 'none'; frame-ancestors 'none'; form-action 'none'"})
     return {"message": f"{settings.APP_NAME} backend is running. See /docs for the API."}

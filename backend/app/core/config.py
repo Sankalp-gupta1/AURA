@@ -29,8 +29,7 @@ class Settings(BaseSettings):
 
     # --- Security ---
     SECRET_KEY: str = "change-this-secret-in-production"
-    JWT_ALGORITHM: str = "HS256"
-    JWT_EXPIRE_MINUTES: int = 60 * 24 * 7  # 7 days
+    SESSION_EXPIRE_MINUTES: int = 60 * 24 * 7  # Logout can revoke it sooner.
 
     # --- Database ---
     DATABASE_URL: str = "sqlite:///./aura.db"

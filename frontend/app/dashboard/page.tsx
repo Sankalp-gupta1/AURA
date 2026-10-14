@@ -112,9 +112,10 @@ export default function DashboardPage() {
   const handleLogout = async () => {
     try {
       await api.logout();
-    } finally {
-      window.localStorage.removeItem("aura_token");
       router.replace("/");
+    } catch (err) {
+      if (err instanceof ApiError && err.status === 401) router.replace("/");
+      else setError("Sign-out could not finish. Please try again so your session can be closed.");
     }
   };
 

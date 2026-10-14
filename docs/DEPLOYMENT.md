@@ -21,19 +21,33 @@ users. Check the Audience page before inviting anyone to connect a real account.
 
 The backend hostname contains the digits **015**, not `0l5` (a letter l).
 
-## Latest deployment verification
+## Security update and sign-in flow
 
-On October 13, 2026, release `47d2e55` passed the frontend production build and
-nine backend integration tests, locally and in GitHub Actions. The deployed
-homepage and backend health check returned HTTP 200. Signed-out profile, Gmail
-and Calendar endpoints returned HTTP 401. The frontend's CORS preflight passed,
-and the backend generated the correct production OAuth callback.
+The October 14 update replaces the previous URL-fragment/localStorage JWT with a
+revocable session held in a frontend HttpOnly cookie. Existing users need to sign
+in again. No user data or stored Google connection is deleted by this migration.
+On backend startup, SQLAlchemy creates two additional tables: `auth_sessions` and
+`login_handoffs`. Keep the database and `SECRET_KEY` from the existing deployment.
 
-The actual Google sign-in page returned a connection error in the verification
-browser. Google consent, token exchange and live Gmail/Calendar sync therefore
-remain unverified. Before sharing with test users, confirm the exact callback in
-Google Cloud's client settings and perform one real sign-in and sync. Do not treat
-the mock-based tests as a replacement for this live check.
+1. The frontend starts sign-in and keeps a temporary verifier in an HttpOnly cookie.
+2. The backend sends the user to Google's official authorization endpoint with
+   OAuth state and PKCE. It preserves the same Google PKCE verifier for the callback.
+3. Google returns to the **existing backend callback**. No Cloud Console redirect
+   change is needed for this update.
+4. The backend returns a two-minute, single-use handoff code to the frontend.
+   The code cannot be exchanged without the original frontend verifier.
+5. The frontend server exchanges that code and sets a Secure, HttpOnly, SameSite=Lax
+   session cookie. Session values are hashed in the database and never sent to
+   browser JavaScript or placed in a redirect URL.
+6. Browser data requests go to the frontend's `/api/...` routes. Its server adds
+   the upstream bearer credential. Cross-site mutations are rejected.
+7. Logout revokes the current server session and clears the cookie.
+
+Google Search Console ownership is verified, but a “Deceptive pages” warning was
+reported with no example URL. Code checks cannot clear that classification. See
+[the security review notes](SECURITY_REVIEW.md) for the investigation scope and a
+review draft. A real Google-account sign-in and live Gmail/Calendar sync still
+need an acceptance check after the browser warning is resolved.
 
 ## Environment variables
 
@@ -46,9 +60,16 @@ BACKEND_URL=https://aura-backend-015h.onrender.com
 FRONTEND_URL=https://aura-frontend-gmuw.onrender.com
 GOOGLE_REDIRECT_URI=https://aura-backend-015h.onrender.com/api/auth/google/callback
 
-# Frontend at build time
-NEXT_PUBLIC_API_URL=https://aura-backend-015h.onrender.com
+# Frontend server
+BACKEND_URL=https://aura-backend-015h.onrender.com
+FRONTEND_URL=https://aura-frontend-gmuw.onrender.com
 ```
+
+The existing Render frontend already has `NEXT_PUBLIC_API_URL`; the server accepts
+it as a fallback, so this update needs no new secret or mandatory environment
+change there. Render's `RENDER_EXTERNAL_HOSTNAME` supplies the frontend origin.
+For other hosts or custom domains, set `FRONTEND_URL` explicitly to the public
+HTTPS origin. Do not use the backend URL as the frontend origin.
 
 The backend also requires `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`,
 `GEMINI_API_KEY`, `SECRET_KEY` and `DATABASE_URL`. Enter them in Render's environment
@@ -57,7 +78,7 @@ Keep `SECRET_KEY` stable: it also encrypts stored Google refresh tokens.
 
 For Vercel, import this repository with **Root Directory `frontend`**, the Next.js
 preset, install command `npm ci`, and build command `npm run build`. Set the same
-`NEXT_PUBLIC_API_URL` for that deployment. Once the production domain is assigned,
+`BACKEND_URL` and public frontend `FRONTEND_URL` for that deployment. Once the production domain is assigned,
 change backend `FRONTEND_URL` to that exact HTTPS origin and redeploy the backend.
 Do not point the real application at the sample-data `web/` folder.
 
@@ -126,12 +147,19 @@ python -m unittest discover -s tests -v
 cd ../frontend
 npm ci
 npm run build
+npm run lint
+
+cd ../backend
+python tests/check_session_roundtrip.py
 ```
 
 Backend tests use an isolated in-memory database and mocked Google calls. They
 cover account separation, unauthenticated requests, OAuth state/cancellation,
 encrypted token storage, refresh behavior, failed sync reporting and event times.
-They do not prove that live Google credentials or consent settings are correct.
+The separate round-trip check runs the built Next.js app and FastAPI together,
+with synthetic Google profiles and a temporary SQLite database. It checks cookies,
+replay rejection, private data, CSRF, streaming and logout. Neither check proves
+that live Google credentials or consent settings are correct.
 
 For a deployed smoke test, check the homepage, `/api/health`, the Google redirect,
 and sign in with an authorized test user. Verify that a second user sees their own

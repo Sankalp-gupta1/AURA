@@ -5,6 +5,9 @@ os.environ["ENVIRONMENT"] = "development"
 os.environ["SECRET_KEY"] = "isolated-test-key-never-for-production"
 
 import unittest
+import secrets
+import time
+from urllib.parse import parse_qs, urlparse
 from datetime import datetime, timedelta, timezone
 from types import SimpleNamespace
 from unittest.mock import patch
@@ -19,7 +22,9 @@ from app.db.database import Base, get_db
 from app.models.user import User
 from app.models.email_model import Email
 from app.models.calendar_model import Event
-from app.core.security import create_access_token, decrypt_secret, encrypt_secret
+from app.core.security import decrypt_secret, encrypt_secret
+from app.models.auth_session import AuthSession, LoginHandoff
+from app.services.sessions import create_handoff, create_session, token_hash, verifier_challenge
 from app.services.sync_service import sync_user_data
 from app.services.google_oauth import credentials_from_user
 
@@ -46,7 +51,15 @@ class AccountFlowTests(unittest.TestCase):
         self.engine.dispose()
 
     def headers(self, user_id):
-        return {"Authorization": f"Bearer {create_access_token(user_id)}"}
+        with self.sessions() as db:
+            token, _ = create_session(db, user_id)
+            db.commit()
+        return {"Authorization": f"Bearer {token}"}
+
+    def start_callback(self):
+        verifier = secrets.token_urlsafe(32)
+        self.client.cookies.set("aura_oauth_state", f"test-state.{verifier_challenge(verifier)}.{secrets.token_urlsafe(64)}")
+        return verifier
 
     def test_signed_out_users_cannot_read_private_data(self):
         for path in ("/api/auth/me", "/api/emails", "/api/calendar", "/api/tasks", "/api/notes", "/api/memory"):
@@ -75,23 +88,106 @@ class AccountFlowTests(unittest.TestCase):
         exchange.assert_not_called()
 
     def test_cancelled_consent_returns_a_friendly_redirect(self):
-        self.client.cookies.set("aura_oauth_state", "test-state")
+        self.start_callback()
         r = self.client.get("/api/auth/google/callback?error=access_denied&state=test-state", follow_redirects=False)
         self.assertIn("oauth_cancelled", r.headers["location"])
 
     def test_login_returns_before_syncing_and_encrypts_google_tokens(self):
-        self.client.cookies.set("aura_oauth_state", "test-state")
+        verifier = self.start_callback()
         creds = SimpleNamespace(token="test-access", refresh_token="test-refresh", expiry=datetime.now(timezone.utc)+timedelta(hours=1), granted_scopes=["openid"], scopes=["openid"])
         with patch("app.api.auth.google_oauth.exchange_code", return_value=creds), patch("app.api.auth.build") as google, patch("app.services.gmail_service.fetch_recent_emails") as sync:
             google.return_value.userinfo.return_value.get.return_value.execute.return_value = {"id": "alice", "email": "alice@example.test", "verified_email": True}
             r = self.client.get("/api/auth/google/callback?code=unused&state=test-state", follow_redirects=False)
-        self.assertEqual(r.status_code, 307)
-        self.assertTrue(r.headers["location"].endswith("/dashboard"))
+        self.assertEqual(r.status_code, 303)
+        location = urlparse(r.headers["location"])
+        self.assertEqual(location.path, "/auth/callback")
+        self.assertEqual(location.fragment, "")
+        self.assertNotIn("token", location.query)
+        code = parse_qs(location.query)["code"][0]
+        exchange = self.client.post("/api/auth/session/exchange", json={"code": code, "verifier": verifier})
+        self.assertEqual(exchange.status_code, 200)
+        self.assertEqual(exchange.headers["cache-control"], "no-store")
+        session = exchange.json()["session"]
+        self.assertNotIn(session, r.headers["location"])
+        self.assertEqual(self.client.get("/api/auth/me", headers={"Authorization": f"Bearer {session}"}).json()["email"], "alice@example.test")
         sync.assert_not_called()
         with self.sessions() as db:
             user = db.get(User, self.alice)
             self.assertTrue(user.access_token.startswith("enc:"))
             self.assertEqual(decrypt_secret(user.refresh_token), "test-refresh")
+
+    def test_handoff_requires_matching_verifier_and_can_only_be_used_once(self):
+        verifier = secrets.token_urlsafe(32)
+        with self.sessions() as db:
+            code = create_handoff(db, self.alice, verifier_challenge(verifier))
+            db.commit()
+            self.assertIsNone(db.get(LoginHandoff, code))
+            self.assertIsNotNone(db.get(LoginHandoff, token_hash(code)))
+        wrong = self.client.post("/api/auth/session/exchange", json={"code": code, "verifier": secrets.token_urlsafe(32)})
+        self.assertEqual(wrong.status_code, 401)
+        valid = self.client.post("/api/auth/session/exchange", json={"code": code, "verifier": verifier})
+        self.assertEqual(valid.status_code, 200)
+        replay = self.client.post("/api/auth/session/exchange", json={"code": code, "verifier": verifier})
+        self.assertEqual(replay.status_code, 401)
+        with self.sessions() as db:
+            self.assertIsNone(db.get(AuthSession, valid.json()["session"]))
+            self.assertIsNotNone(db.get(AuthSession, token_hash(valid.json()["session"])))
+
+    def test_expired_handoffs_and_sessions_are_rejected(self):
+        verifier = secrets.token_urlsafe(32)
+        with self.sessions() as db:
+            code = create_handoff(db, self.alice, verifier_challenge(verifier))
+            token, _ = create_session(db, self.alice)
+            db.flush()
+            db.get(LoginHandoff, token_hash(code)).expires_at = int(time.time()) - 1
+            db.get(AuthSession, token_hash(token)).expires_at = int(time.time()) - 1
+            db.commit()
+        self.assertEqual(self.client.post("/api/auth/session/exchange", json={"code": code, "verifier": verifier}).status_code, 401)
+        self.assertEqual(self.client.get("/api/auth/me", headers={"Authorization": f"Bearer {token}"}).status_code, 401)
+
+    def test_logout_revokes_the_session_without_logging_out_other_sessions(self):
+        first, second = self.headers(self.alice), self.headers(self.alice)
+        self.assertEqual(self.client.post("/api/auth/logout", headers=first).status_code, 200)
+        self.assertEqual(self.client.get("/api/auth/me", headers=first).status_code, 401)
+        self.assertEqual(self.client.get("/api/auth/me", headers=second).status_code, 200)
+
+    def test_backend_does_not_accept_cookie_auth_or_old_jwt_tokens(self):
+        token = self.headers(self.alice)["Authorization"].split()[1]
+        self.client.cookies.set("aura_session", token)
+        self.assertEqual(self.client.get("/api/auth/me").status_code, 401)
+        self.assertEqual(self.client.get("/api/auth/me", headers={"Authorization": "Bearer old.jwt.token"}).status_code, 401)
+
+    def test_login_requires_a_frontend_challenge(self):
+        with patch("app.api.auth.google_oauth.build_auth_url") as build_url:
+            for challenge in ("", "invalid", "x" * 44):
+                self.assertEqual(self.client.get("/api/auth/google/login", params={"challenge": challenge}).status_code, 400)
+        build_url.assert_not_called()
+
+    def test_google_pkce_verifier_is_preserved_between_login_and_exchange(self):
+        from app.services import google_oauth
+        from google_auth_oauthlib.flow import Flow
+        verifier = secrets.token_urlsafe(64)
+        with patch.object(google_oauth.settings, "GOOGLE_CLIENT_ID", "fixture-client"), patch.object(google_oauth.settings, "GOOGLE_CLIENT_SECRET", "fixture-secret"):
+            url = google_oauth.build_auth_url("fixture-state", verifier)
+            query = parse_qs(urlparse(url).query)
+            self.assertEqual(query["code_challenge"], [verifier_challenge(verifier)])
+            self.assertEqual(query["code_challenge_method"], ["S256"])
+            seen = []
+            def fetch_token(flow, code):
+                seen.append(flow.code_verifier)
+                flow.oauth2session.token = {"access_token": "fixture-access", "token_type": "Bearer", "expires_at": int(time.time()) + 3600}
+            with patch.object(Flow, "fetch_token", autospec=True, side_effect=fetch_token):
+                google_oauth.exchange_code("fixture-code", verifier)
+            self.assertEqual(seen, [verifier])
+
+    def test_unverified_google_email_cannot_create_a_session(self):
+        self.start_callback()
+        with patch("app.api.auth.google_oauth.exchange_code"), patch("app.api.auth.build") as google:
+            google.return_value.userinfo.return_value.get.return_value.execute.return_value = {"id": "alice", "verified_email": False}
+            result = self.client.get("/api/auth/google/callback?code=unused&state=test-state", follow_redirects=False)
+        self.assertIn("oauth_failed", result.headers["location"])
+        with self.sessions() as db:
+            self.assertEqual(db.query(LoginHandoff).count(), 0)
 
     def test_failed_sync_does_not_claim_success(self):
         with self.sessions() as db, patch("app.services.gmail_service.fetch_recent_emails", side_effect=RuntimeError("unavailable")), patch("app.services.calendar_service.fetch_upcoming_events", side_effect=RuntimeError("unavailable")):

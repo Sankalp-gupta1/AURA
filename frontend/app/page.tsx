@@ -57,6 +57,10 @@ export default async function LandingPage({
         <p className="mt-3 font-mono-ui text-[11px] text-[var(--color-muted)]">
           Gmail is read-only. You decide which calendar actions to approve.
         </p>
+        <p className="mt-2 text-xs text-[var(--color-muted)] max-w-md leading-relaxed">
+          AURA is an independent app, not a Google product. Sign-in happens on Google&apos;s website.
+          AURA never asks you to enter your Google password here.
+        </p>
         <p className="mt-4 text-xs text-[var(--color-muted)] max-w-md leading-relaxed">
           Early access: Google sign-in is currently available to approved test users.
           Your first connection may take about a minute while the service wakes up.

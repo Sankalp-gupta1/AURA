@@ -9,7 +9,7 @@ export default function PrivacyPage() {
         </Link>
 
         <h1 className="font-display text-3xl md:text-4xl font-bold mt-6">Privacy Policy</h1>
-        <p className="text-sm text-[var(--color-muted)] mt-2">Last updated: October 12, 2026</p>
+        <p className="text-sm text-[var(--color-muted)] mt-2">Last updated: October 14, 2026</p>
 
         <div className="mt-8 space-y-7 text-sm md:text-base leading-7 text-[var(--color-text)]">
           <section>
@@ -45,6 +45,9 @@ export default function PrivacyPage() {
               AURA stores synchronized application data in its database. Google OAuth access
               and refresh tokens are encrypted before they are stored. Access to a user&apos;s
               AURA data is tied to that user&apos;s authenticated account.
+              Sign-in sessions use an HttpOnly cookie, which browser scripts cannot read.
+              Signing out invalidates the current AURA session; it does not revoke the
+              separate permission you granted AURA in your Google Account.
             </p>
           </section>
 

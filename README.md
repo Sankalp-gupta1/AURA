@@ -14,10 +14,18 @@ email must be on the app's test-user list. This is not yet an unrestricted publi
 Google integration. Live Google consent and account sync still need a real-account
 acceptance check; Google's sign-in page was unreachable from the verification browser.
 
-Deployment checks on October 13, 2026: the homepage and backend health endpoint
-returned HTTP 200, private API endpoints rejected signed-out requests, and the
-frontend's CORS origin and OAuth callback matched. The production frontend build
-and all nine backend integration tests passed, including account-isolation tests.
+**Browser safety review:** Google Search Console reported “Deceptive pages” for
+our backend, without a sample URL. Ownership is verified. Code hardening does not
+remove that Google warning; a security review is still required. Do not bypass a
+browser safety warning to connect an account.
+
+The October 14 security update moves sessions out of URLs and browser storage into
+HttpOnly cookies, makes logout revoke the server session, preserves Google's PKCE
+verifier across sign-in, and updates dependencies with published advisories.
+Synthetic-account checks cover sign-in, private data, cross-site request rejection,
+streaming and logout. They do not replace a real Google-account acceptance check.
+
+[Security changes, verification scope and Google review notes](docs/SECURITY_REVIEW.md)
 
 [Deployment details, exact Google callback and troubleshooting](docs/DEPLOYMENT.md)
 

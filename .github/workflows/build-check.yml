@@ -52,3 +52,12 @@ jobs:
         env:
           NEXT_PUBLIC_API_URL: https://example-backend.onrender.com
         run: npm run build
+      - name: Lint application source
+        run: npm run lint
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install API dependencies for the isolated sign-in check
+        run: pip install -r ../backend/requirements.txt
+      - name: Verify frontend and backend sessions together with synthetic accounts
+        run: python ../backend/tests/check_session_roundtrip.py

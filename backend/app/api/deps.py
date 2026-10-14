@@ -1,31 +1,35 @@
-from fastapi import Depends, HTTPException, status, Cookie, Header
+import re
+import time
+
+from fastapi import Depends, Header, HTTPException
 from sqlalchemy.orm import Session
 
 from app.db.database import get_db
-from app.core.security import decode_access_token
+from app.models.auth_session import AuthSession
 from app.models.user import User
+from app.services.sessions import token_hash
+
+
+def bearer_token(authorization: str | None) -> str | None:
+    if not authorization or not authorization.lower().startswith("bearer "):
+        return None
+    token = authorization.split(" ", 1)[1].strip()
+    return token if re.fullmatch(r"[A-Za-z0-9_-]{43}", token) else None
 
 
 def get_current_user(
-    aura_session: str | None = Cookie(default=None),
     authorization: str | None = Header(default=None),
     db: Session = Depends(get_db),
 ) -> User:
-    token = aura_session
-
-    # Production frontend/backend can live on different Render domains.
-    # Bearer auth avoids depending on third-party cookies.
-    if authorization and authorization.lower().startswith("bearer "):
-        token = authorization.split(" ", 1)[1].strip()
-
+    # Next.js reads its HttpOnly cookie and supplies the private bearer header.
+    # Browser cookies and the old JWT/localStorage tokens are not accepted here.
+    token = bearer_token(authorization)
     if not token:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Not authenticated")
-
-    user_id = decode_access_token(token)
-    if user_id is None:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid or expired session")
-
-    user = db.query(User).filter(User.id == user_id).first()
+        raise HTTPException(401, "Not authenticated")
+    session = db.get(AuthSession, token_hash(token))
+    if not session or session.expires_at <= int(time.time()):
+        raise HTTPException(401, "Invalid or expired session")
+    user = db.get(User, session.user_id)
     if not user:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="User not found")
+        raise HTTPException(401, "User not found")
     return user

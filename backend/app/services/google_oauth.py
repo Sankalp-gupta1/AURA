@@ -48,9 +48,10 @@ def _client_config() -> dict:
     }
 
 
-def build_auth_url(state: str | None = None) -> str:
+def build_auth_url(state: str, code_verifier: str) -> str:
     redirect_uri = _redirect_uri()
-    flow = Flow.from_client_config(_client_config(), scopes=SCOPES, redirect_uri=redirect_uri)
+    flow = Flow.from_client_config(_client_config(), scopes=SCOPES, redirect_uri=redirect_uri,
+                                  code_verifier=code_verifier, autogenerate_code_verifier=False)
     auth_url, _state = flow.authorization_url(
         access_type="offline",
         include_granted_scopes="true",
@@ -60,9 +61,12 @@ def build_auth_url(state: str | None = None) -> str:
     return auth_url
 
 
-def exchange_code(code: str) -> Credentials:
+def exchange_code(code: str, code_verifier: str) -> Credentials:
     redirect_uri = _redirect_uri()
-    flow = Flow.from_client_config(_client_config(), scopes=SCOPES, redirect_uri=redirect_uri)
+    # Flow objects are recreated across requests. Preserve the original PKCE
+    # verifier instead of generating a new one (or losing it) at the callback.
+    flow = Flow.from_client_config(_client_config(), scopes=SCOPES, redirect_uri=redirect_uri,
+                                  code_verifier=code_verifier, autogenerate_code_verifier=False)
     flow.fetch_token(code=code)
     return flow.credentials
 

@@ -114,10 +114,10 @@ def execute_action(db: Session, user, action: AgentAction) -> AgentAction:
         action.status = "executed"
         action.executed_at = datetime.now(timezone.utc).isoformat()
 
-    except Exception as exc:
-        logger.exception("Failed to execute action %s", action.id)
+    except Exception:
+        logger.warning("Failed to execute action %s", action.id)
         action.status = "failed"
-        action.result_note = f"Execution failed: {exc}"
+        action.result_note = "This action could not be completed. Check the details and reconnect Google if needed."
 
     db.commit()
     db.refresh(action)

@@ -1,9 +1,5 @@
-const rawApiBase = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
-
-export const API_BASE =
-  rawApiBase.startsWith("http://") || rawApiBase.startsWith("https://")
-    ? rawApiBase.replace(/\/$/, "")
-    : `https://${rawApiBase.replace(/\/$/, "")}`;
+// Browser requests stay on the frontend origin. Only its server handles tokens.
+export const API_BASE = "";
 
 export class ApiError extends Error {
   status: number;
@@ -14,19 +10,12 @@ export class ApiError extends Error {
 }
 
 async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
-  const authHeaders: Record<string, string> = {};
-  if (typeof window !== "undefined") {
-    const token = window.localStorage.getItem("aura_token");
-    if (token) authHeaders.Authorization = `Bearer ${token}`;
-  }
-
   const res = await fetch(`${API_BASE}${path}`, {
     ...options,
     credentials: "include",
     signal: options.signal ?? AbortSignal.timeout(120_000),
     headers: {
       "Content-Type": "application/json",
-      ...authHeaders,
       ...(options.headers || {}),
     },
   });

@@ -42,6 +42,7 @@ def init_db() -> None:
         chat_model,
         memory_model,
         agent_action,
+        auth_session,
     )
 
     Base.metadata.create_all(bind=engine)

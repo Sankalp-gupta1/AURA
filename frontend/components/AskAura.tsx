@@ -44,6 +44,9 @@ export default function AskAura() {
         body: JSON.stringify({ question: q }),
       });
 
+      if (!res.ok) {
+        throw new Error(res.status === 401 ? "Please sign in again to ask AURA." : "AURA could not answer just now. Please try again.");
+      }
       if (!res.body) throw new Error("No response stream");
       const reader = res.body.getReader();
       const decoder = new TextDecoder();
@@ -60,6 +63,7 @@ export default function AskAura() {
         for (const line of lines) {
           if (!line.startsWith("data: ")) continue;
           const payload = JSON.parse(line.slice(6));
+          if (payload.error) throw new Error("AURA could not finish this answer. Please try again.");
           if (payload.delta) {
             setMessages((prev) => {
               const copy = [...prev];

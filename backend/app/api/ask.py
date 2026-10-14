@@ -221,19 +221,20 @@ def ask_aura(
                 f"\n\n"
             )
 
-        except Exception as exc:
+        except Exception:
 
             # If something goes wrong while streaming,
             # rollback any unfinished DB transaction.
 
             db.rollback()
+            logger.warning("AURA answer could not be completed for user %s", user_id)
 
             # Send error to frontend instead of crashing
             # the whole streaming response.
 
             yield (
                 f"data: "
-                f"{json.dumps({'error': str(exc)})}"
+                f"{json.dumps({'error': 'AURA could not finish this answer. Please try again.'})}"
                 f"\n\n"
             )
 
