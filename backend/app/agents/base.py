@@ -17,7 +17,7 @@ def safe_json_loads(text: str, fallback: dict) -> dict:
     try:
         return json.loads(text)
     except (json.JSONDecodeError, TypeError):
-        logger.warning("Agent returned non-JSON payload, using fallback. Raw: %.200s", text)
+        logger.warning("Agent returned an invalid JSON response; using fallback")
         return fallback
 
 

@@ -49,10 +49,12 @@ def briefing(force: bool = False, db: Session = Depends(get_db), user: User = De
     events = db.query(Event).filter(Event.user_id == user.id).order_by(Event.start_time.asc()).limit(10).all()
     memories = memory_service.get_relevant_memories(db, user.id)
 
+    generated = False
     try:
         data = ai_service.generate_briefing(tasks, emails, events, memories=memories)
+        generated = True
     except Exception:
-        logger.exception("Briefing generation failed for user %s", user.id)
+        logger.warning("Briefing generation could not be completed for user %s", user.id)
         data = {
             "daily_briefing": "Could not reach the AI provider right now. Please try again shortly.",
             "top_focus": [],
@@ -69,5 +71,6 @@ def briefing(force: bool = False, db: Session = Depends(get_db), user: User = De
         motivational_note=data.get("motivational_note", ""),
         generated_at=datetime.now(timezone.utc).isoformat(),
     )
-    _briefing_cache[user.id] = result
+    if generated:
+        _briefing_cache[user.id] = result
     return result

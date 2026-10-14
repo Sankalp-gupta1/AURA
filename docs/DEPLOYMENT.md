@@ -59,6 +59,7 @@ ENVIRONMENT=production
 BACKEND_URL=https://aura-backend-015h.onrender.com
 FRONTEND_URL=https://aura-frontend-gmuw.onrender.com
 GOOGLE_REDIRECT_URI=https://aura-backend-015h.onrender.com/api/auth/google/callback
+GEMINI_MODEL=gemini-3.8-flash
 
 # Frontend server
 BACKEND_URL=https://aura-backend-015h.onrender.com
@@ -139,6 +140,26 @@ Official setup and review guidance:
 6. Sign out using the button in the top bar. Google access can also be revoked from their Google Account settings.
 
 ## Checks before sharing
+
+If the Google account chooser appears, select an account already in **Audience →
+Test users**. This page is not an error. A `403 access_denied` for a different
+account means that account needs test access; changing the callback URL will not
+fix it. A Chrome "Dangerous site" warning is a separate issue: stop there and
+complete the Search Console review rather than bypassing it.
+
+If AI returns a model `404 NOT_FOUND`, open the backend's `/api/health` and check
+`ai_model`. This deployment uses `gemini-3.8-flash`; older projects may still have
+an explicit `GEMINI_MODEL=gemini-2.5-flash` in Render that overrides the code
+default. In that case update **aura-backend → Environment → GEMINI_MODEL**, save
+and redeploy, then check health again. Keep API keys private. Changing a model name
+does not enable billing, and the health response does not make a paid AI request.
+It also does not prove model access or quota; confirm those with a normal in-app
+request using the approved account. See Google's current
+[model availability](https://ai.google.dev/gemini-api/docs/models).
+
+Provider errors now appear as retryable chat failures rather than being saved as
+assistant answers. A failed briefing is not cached, so a later request can recover
+after the underlying provider configuration is corrected.
 
 ```bash
 cd backend

@@ -46,9 +46,11 @@ configured Google test users until its OAuth launch requirements are met.
 Local verification for this release:
 
 - Frontend production build and source lint passed.
-- 19 backend checks passed, including account isolation, OAuth state, Google
+- 21 backend checks passed, including account isolation, OAuth state, Google
   PKCE, session expiry/revocation, handoff replay rejection, encrypted Google
-  token storage, and the exact public ownership file.
+  token storage, and the exact public ownership file. The additional AI failure
+  checks verify that provider errors are not returned or saved as chat answers,
+  and that a failed briefing can recover on a later request.
 - A separate production Next.js + FastAPI round-trip test passed with two
   synthetic accounts. It covers cookies, sign-in, private data, cross-site
   rejection, request size, streaming and logout.
@@ -61,6 +63,14 @@ not prove live Google consent, real Gmail/Calendar access, or Google's removal
 of the warning. The hosting account, all historical deployments, and Google's
 internal detection evidence have not been independently audited. No claim of a
 complete infrastructure or malware audit is made.
+
+The owner's October 14 screenshots also show an earlier successful Google sign-in,
+an unapproved account being rejected with `403 access_denied`, and a Gemini model
+availability error. The approved account can be selected in the Google account
+chooser; other accounts need to be added as test users. The app default and Render
+blueprint now use `gemini-3.8-flash`. The public health endpoint exposes only the
+configured model name and deployment commit to help verify the running release;
+these metadata do not prove that a live AI request succeeded.
 
 ## Review draft
 

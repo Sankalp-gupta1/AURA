@@ -11,8 +11,10 @@ to wake up on the first visit.
 
 **Access status:** Google OAuth is configured for external test users. Your Google
 email must be on the app's test-user list. This is not yet an unrestricted public
-Google integration. Live Google consent and account sync still need a real-account
-acceptance check; Google's sign-in page was unreachable from the verification browser.
+Google integration. An owner-provided screenshot on October 14 shows a successful
+earlier sign-in. Live account sync and sign-in after the session update still need
+a real-account acceptance check. The public login redirect reaches Google's
+official authorization endpoint with the correct registered callback.
 
 **Browser safety review:** Google Search Console reported “Deceptive pages” for
 our backend, without a sample URL. Ownership is verified. Code hardening does not

@@ -22,6 +22,7 @@ from app.db.database import Base, get_db
 from app.models.user import User
 from app.models.email_model import Email
 from app.models.calendar_model import Event
+from app.models.chat_model import ChatMessage
 from app.core.security import decrypt_secret, encrypt_secret
 from app.models.auth_session import AuthSession, LoginHandoff
 from app.services.sessions import create_handoff, create_session, token_hash, verifier_challenge
@@ -195,6 +196,29 @@ class AccountFlowTests(unittest.TestCase):
         self.assertEqual(result["status"], "failed")
         self.assertEqual(result["synced_at"], "")
         self.assertEqual(len(result["warnings"]), 2)
+
+    def test_ai_provider_failure_is_not_exposed_or_saved_as_an_answer(self):
+        with patch("app.services.ai_service.get_client") as provider, patch("app.agents.orchestrator.remember_from_exchange") as remember:
+            provider.return_value.models.generate_content.side_effect = RuntimeError("provider-url?key=private-test-value")
+            response = self.client.post("/api/ask", headers=self.headers(self.alice), json={"question": "Hello"})
+        self.assertIn('"error":', response.text)
+        self.assertNotIn("private-test-value", response.text)
+        self.assertNotIn('"done": true', response.text)
+        remember.assert_not_called()
+        with self.sessions() as db:
+            self.assertEqual(db.query(ChatMessage).filter(ChatMessage.role == "assistant").count(), 0)
+
+    def test_failed_briefing_is_not_cached_as_a_successful_generation(self):
+        from app.api.dashboard import _briefing_cache
+        _briefing_cache.clear()
+        headers = self.headers(self.alice)
+        with patch("app.api.dashboard.ai_service.generate_briefing", side_effect=[RuntimeError("unavailable"), {"daily_briefing": "Recovered briefing"}]) as generate:
+            first = self.client.get("/api/dashboard/briefing", headers=headers)
+            second = self.client.get("/api/dashboard/briefing", headers=headers)
+        self.assertIn("Could not reach", first.json()["daily_briefing"])
+        self.assertEqual(second.json()["daily_briefing"], "Recovered briefing")
+        self.assertEqual(generate.call_count, 2)
+        _briefing_cache.clear()
 
     def test_sync_updates_changed_calendar_event_without_duplicate(self):
         event = {"google_event_id": "event", "title": "Before", "start_time": "2026-10-14T10:00:00Z", "end_time": "2026-10-14T11:00:00Z"}

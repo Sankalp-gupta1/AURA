@@ -49,10 +49,7 @@ def _safe_json_loads(text: str, fallback: dict) -> dict:
     try:
         return json.loads(text)
     except (json.JSONDecodeError, TypeError):
-        logger.warning(
-            "AI returned non-JSON payload, using fallback. Raw: %.200s",
-            text,
-        )
+        logger.warning("AI returned an invalid JSON response; using fallback")
         return fallback
 
 
@@ -294,6 +291,8 @@ USER QUESTION:
         if text:
             yield text
 
-    except Exception as exc:
-        logger.exception("Gemini chat failed")
-        yield f"\n\n[AURA hit an error talking to the AI provider: {exc}]"
+    except Exception:
+        # Let the API emit a safe error event. Treating a provider failure as an
+        # answer would also save it to chat history and feed it into memory.
+        logger.warning("Gemini chat could not be completed")
+        raise
